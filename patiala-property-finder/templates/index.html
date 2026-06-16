@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GanitProperties</title>
+  <meta name="description" content="GanitProperties — Find all property types in Patiala, Punjab. Houses, plots, commercial, agricultural and more."/>
+  <meta property="og:title" content="GanitProperties"/>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <span class="header-icon">🏠</span>
+      <div>
+        <h1 class="header-title">GanitProperties</h1>
+        <p class="header-sub">All property types · All sources · Patiala, Punjab</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="stats-chips" id="statsChips">
+        <span class="chip" id="statTotal">— listings</span>
+      </div>
+      <button class="btn btn-refresh" id="refreshBtn" onclick="startRefresh()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span class="refresh-text">Refresh All</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ── Search ── -->
+<div class="search-section">
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="searchInput" class="search-input"
+             placeholder="Search by title, area, keyword…" oninput="debounceSearch()"/>
+      <button class="clear-btn" id="clearSearch" onclick="clearSearch()" style="display:none">✕</button>
+    </div>
+
+    <!-- Filter row 1 -->
+    <div class="filter-row">
+      <select class="fsel" id="fType"     onchange="applyFilters()"><option value="">Buy / Rent</option><option>Buy</option><option>Rent</option></select>
+      <select class="fsel" id="fPropType" onchange="applyFilters()"><option value="">Property Type</option></select>
+      <select class="fsel" id="fSource"   onchange="applyFilters()"><option value="">All Sources</option></select>
+      <select class="fsel" id="fLocation" onchange="applyFilters()"><option value="">All Localities</option></select>
+      <button class="btn btn-clear-f" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <!-- Filter row 2: ranges -->
+    <div class="filter-row filter-row--ranges" id="rangeRow">
+      <div class="range-group">
+        <label class="range-label">Price (₹ Lakh)</label>
+        <div class="range-inputs">
+          <input type="number" class="range-input" id="minPrice" placeholder="Min" min="0" step="1" oninput="debounceFilters()"/>
+          <span class="range-sep">–</span>
+          <input type="number" class="range-input" id="maxPrice" placeholder="Max" min="0" step="1" oninput="debounceFilters()"/>
+        </div>
+      </div>
+      <div class="range-group">
+        <label class="range-label">Area (sq ft)</label>
+        <div class="range-inputs">
+          <input type="number" class="range-input" id="minArea" placeholder="Min" min="0" step="100" oninput="debounceFilters()"/>
+          <span class="range-sep">–</span>
+          <input type="number" class="range-input" id="maxArea" placeholder="Max" min="0" step="100" oninput="debounceFilters()"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Results meta ── -->
+<div class="results-meta" id="resultsMeta" style="display:none">
+  <span id="resultsCount"></span>
+</div>
+
+<!-- ── States ── -->
+<div class="loading-state" id="loadingState">
+  <div class="spinner"></div><p>Loading listings…</p>
+</div>
+<div class="empty-state" id="emptyState" style="display:none">
+  <div class="empty-icon">🔍</div>
+  <h3>No properties found</h3>
+  <p>Try adjusting your search or filters, or click <strong>Refresh All</strong> to fetch new listings.</p>
+  <button class="btn btn-primary" onclick="clearFilters()">Clear filters</button>
+</div>
+
+<!-- ── Grid ── -->
+<main class="container">
+  <div class="property-grid" id="propertyGrid"></div>
+  <div class="pagination" id="pagination"></div>
+</main>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Refresh Modal ── -->
+<div class="modal-overlay" id="refreshModal">
+  <div class="modal modal--refresh">
+    <h3 class="modal-title">🔄 Fetching Listings</h3>
+    <p class="modal-sub">Searching all sources for Patiala properties…</p>
+    <div class="source-status-list" id="sourceStatusList">
+      <div class="source-row" data-source="MagicBricks"><span class="src-name">MagicBricks</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="99acres">    <span class="src-name">99acres</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="Housing.com"><span class="src-name">Housing.com</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="CommonFloor"><span class="src-name">CommonFloor</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="NoBroker"><span class="src-name">NoBroker</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="Google Search">    <span class="src-name">Google Search</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+    </div>
+    <div class="modal-progress"><div class="modal-progress-bar" id="progressBar"></div></div>
+    <div class="modal-result" id="modalResult" style="display:none"></div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

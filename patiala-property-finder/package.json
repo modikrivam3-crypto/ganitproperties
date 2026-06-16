@@ -1,0 +1,10 @@
+{
+  "name": "patiala-property-finder",
+  "version": "1.0.0",
+  "description": "Patiala Property Finder — local Flask web app",
+  "scripts": {
+    "dev": "python app.py",
+    "start": "python app.py"
+  },
+  "private": true
+}
