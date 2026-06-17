@@ -107,13 +107,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .btn-listing--unavailable{background:#edf2f7;color:var(--text-muted);cursor:default}
 .btn-listing--unavailable:hover{background:#edf2f7}
 
-/* ── Contact Buttons on Cards ── */
-.card-contact-name{font-size:.78rem;color:#4a5568;display:flex;align-items:center;gap:4px;padding-top:4px;font-weight:500}
+/* ── Contact Section on Cards ── */
+.card-contact-section{padding-top:6px;border-top:1px solid var(--border);margin-top:6px;display:flex;flex-direction:column;gap:4px}
+.card-contact-name{font-size:.78rem;color:#4a5568;display:flex;align-items:center;gap:4px}
 .card-contact-name span{font-size:.85rem}
-.card-contact-info{font-size:.78rem;color:#4a5568;display:flex;align-items:center;gap:4px;padding-top:4px}
+.card-contact-info{font-size:.78rem;color:#2b6cb0;display:flex;align-items:center;gap:4px;font-weight:500}
 .card-contact-info span{font-size:.85rem}
-.card-contact-info--na{color:var(--text-muted);font-style:italic}
-.card-contact-buttons{display:flex;gap:6px;flex-wrap:wrap;padding-top:6px}
+.card-contact-info--hidden{color:var(--text-muted);font-style:italic;font-weight:400}
+.card-contact-notes{font-size:.75rem;color:#553c9a;display:flex;align-items:center;gap:4px}
+.card-contact-notes span{font-size:.82rem}
+.btn-contact-source{display:inline-block;padding:5px 10px;font-size:.72rem;font-weight:600;color:var(--primary);background:var(--primary-light);border-radius:var(--r-sm);text-decoration:none;transition:background .15s;align-self:flex-start}
+.btn-contact-source:hover{background:#c6f6d5}
+.card-contact-buttons{display:flex;gap:6px;flex-wrap:wrap}
 .btn-contact{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-sm);font-size:.75rem;font-weight:600;text-decoration:none;transition:background .15s,transform .1s;white-space:nowrap;border:none;cursor:pointer;font-family:inherit}
 .btn-contact:active{transform:scale(.97)}
 .btn-call{background:#e8f5e9;color:#1b5e20}
@@ -121,6 +126,22 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .btn-whatsapp{background:#e8f5e9;color:#128C7E}
 .btn-whatsapp:hover{background:#c8e6c9}
 .btn-whatsapp svg{color:#25D366}
+
+/* ── Save Contact Button ── */
+.btn-save-contact{display:inline-block;padding:4px 10px;font-size:.7rem;font-weight:600;color:var(--text);background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:background .15s,border-color .15s;font-family:inherit;align-self:flex-start;margin-top:2px}
+.btn-save-contact:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+
+/* ── Contact Edit Form ── */
+.card-contact-form{display:none;flex-direction:column;gap:6px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);margin-top:4px}
+.cf-input,.cf-textarea{width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.78rem;font-family:inherit;outline:none;background:#fff;transition:border-color .2s}
+.cf-input:focus,.cf-textarea:focus{border-color:var(--primary)}
+.cf-textarea{min-height:44px;resize:vertical}
+.cf-actions{display:flex;gap:6px}
+.cf-btn{padding:5px 12px;border-radius:var(--r-sm);font-size:.75rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:background .15s}
+.cf-btn-save{background:var(--primary);color:#fff}
+.cf-btn-save:hover{background:var(--primary-hover)}
+.cf-btn-cancel{background:var(--border);color:var(--text)}
+.cf-btn-cancel:hover{background:#d2d8e0}
 
 /* ── Loading / Empty ── */
 .loading-state,.empty-state{text-align:center;padding:60px 16px;color:var(--text-muted);font-size:.88rem}

@@ -151,7 +151,7 @@ function createCard(p, i) {
   const meta = [];
   if (p.location) meta.push(`<span class="card-meta-item"><span>📍</span>${escH(p.location)}${p.location !== 'Patiala' ? ', Patiala' : ''}</span>`);
   if (p.area)     meta.push(`<span class="card-meta-item"><span>📐</span>${escH(p.area)}</span>`);
-  if (p.contact_number && p.contact_number !== 'null' && p.contact_number !== 'None') meta.push(`<span class="card-meta-item"><span>📞</span>${escH(p.contact_number)}</span>`);
+  if (p.contact_number && !isBlank(p.contact_number)) meta.push(`<span class="card-meta-item"><span>📞</span>${escH(p.contact_number)}</span>`);
 
   const priceHtml = p.price
     ? `<div class="card-price">${escH(p.price)}</div>`
@@ -159,36 +159,48 @@ function createCard(p, i) {
 
   const hasUrl = p.source_url && p.source_url.startsWith('http');
 
-  // Determine best phone number to use: phone field > contact_number
-  const phoneNum = (p.phone && p.phone !== 'null' && p.phone !== 'None') ? p.phone : '';
-  const contactName = (p.contact_name && p.contact_name !== 'null' && p.contact_name !== 'None') ? p.contact_name : '';
-  const contactNum = (p.contact_number && p.contact_number !== 'null' && p.contact_number !== 'None') ? p.contact_number : '';
+  // Clean values: never show None/null
+  const phoneVal = cleanVal(p.phone);
+  const contactNumVal = cleanVal(p.contact_number);
+  const contactNameVal = cleanVal(p.contact_name);
+  const notesVal = cleanVal(p.notes);
 
-  // Contact name line
-  const contactNameHtml = contactName
-    ? `<div class="card-contact-name"><span>👤</span> ${escH(contactName)}</div>`
-    : '';
+  const effectivePhone = phoneVal || contactNumVal || '';
 
-  // Contact display: show number if available, otherwise "Not publicly available"
-  let contactDisplayHtml = '';
-  if (phoneNum) {
-    contactDisplayHtml = `<div class="card-contact-info"><span>📞</span> Contact: ${escH(phoneNum)}</div>`;
-  } else if (contactNum && !phoneNum) {
-    contactDisplayHtml = `<div class="card-contact-info"><span>📞</span> Contact: ${escH(contactNum)}</div>`;
+  // Contact info section
+  let contactHtml = '<div class="card-contact-section">';
+
+  // Phone display
+  if (effectivePhone) {
+    contactHtml += `<div class="card-contact-info"><span>📞</span> Contact: ${escH(effectivePhone)}</div>`;
   } else {
-    contactDisplayHtml = `<div class="card-contact-info card-contact-info--na"><span>📞</span> Contact: Not publicly available</div>`;
+    contactHtml += `<div class="card-contact-info card-contact-info--hidden">📞 Phone hidden by source website</div>`;
   }
 
-  // Contact buttons: if phone exists, show Call & WhatsApp
-  let contactButtonsHtml = '';
-  if (phoneNum) {
-    const cleanNum = phoneNum.replace(/[\s\-\(\)\+]/g, '');
+  // Contact name
+  if (contactNameVal) {
+    contactHtml += `<div class="card-contact-name"><span>👤</span> ${escH(contactNameVal)}</div>`;
+  }
+
+  // Notes
+  if (notesVal) {
+    contactHtml += `<div class="card-contact-notes"><span>📝</span> ${escH(notesVal)}</div>`;
+  }
+
+  // Contact on Source button (always when URL exists)
+  if (hasUrl) {
+    contactHtml += `<a href="${escH(p.source_url)}" target="_blank" rel="noopener noreferrer" class="btn-contact-source">Contact on Source ↗</a>`;
+  }
+
+  // Call/WhatsApp buttons if phone available
+  if (effectivePhone) {
+    const cleanNum = effectivePhone.replace(/[\s\-\(\)\+]/g, '');
     const isIndian = /^(\+?91[-\s]?)?[6-9]\d{9}$/.test(cleanNum) || /^[6-9]\d{9}$/.test(cleanNum);
     const dialNum = isIndian ? cleanNum.replace(/^0+/, '') : cleanNum;
     const fullTel = dialNum.startsWith('+') ? dialNum : `+91${dialNum}`;
     const waNum = isIndian ? `91${dialNum.replace(/^91/, '')}` : dialNum;
 
-    contactButtonsHtml = `<div class="card-contact-buttons">
+    contactHtml += `<div class="card-contact-buttons">
       <a href="tel:${fullTel}" class="btn-contact btn-call">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -204,6 +216,23 @@ function createCard(p, i) {
       </a>` : ''}
     </div>`;
   }
+
+  // Save Contact button - toggles inline edit form
+  contactHtml += `<button class="btn-save-contact" onclick="toggleContactForm(${p.id}, this)">✏️ Save Contact</button>`;
+
+  // Inline edit form (hidden by default)
+  contactHtml += `<div class="card-contact-form" id="contactForm-${p.id}" style="display:none;">
+    <input type="text" class="cf-input" id="cf-name-${p.id}" placeholder="Contact name (Owner/Broker)" value="${escH(contactNameVal)}" />
+    <input type="text" class="cf-input" id="cf-phone-${p.id}" placeholder="Phone number" value="${escH(effectivePhone)}" />
+    <input type="text" class="cf-input" id="cf-number-${p.id}" placeholder="Alternate contact number" value="${escH(contactNumVal)}" />
+    <textarea class="cf-textarea" id="cf-notes-${p.id}" placeholder="Notes (optional)">${escH(notesVal)}</textarea>
+    <div class="cf-actions">
+      <button class="cf-btn cf-btn-save" onclick="saveContact(${p.id})">💾 Save</button>
+      <button class="cf-btn cf-btn-cancel" onclick="cancelContactForm(${p.id})">Cancel</button>
+    </div>
+  </div>`;
+
+  contactHtml += '</div>';
 
   const linkHtml = hasUrl
     ? `<a href="${escH(p.source_url)}" target="_blank" rel="noopener noreferrer" class="btn-listing">
@@ -228,14 +257,68 @@ function createCard(p, i) {
     ${priceHtml}
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     ${p.summary ? `<p class="card-summary">${escH(p.summary)}</p>` : ''}
-    ${contactNameHtml}
-    ${contactDisplayHtml}
-    ${contactButtonsHtml}
+    ${contactHtml}
     <div class="card-footer">
       <span class="card-source-info">${dateStr ? dateStr : ''}</span>
       ${linkHtml}
     </div>`;
   return el;
+}
+
+// ── Contact helpers ──────────────────────────────────────────────────────────
+
+function cleanVal(v) {
+  if (!v || v === 'None' || v === 'null' || v === 'undefined') return '';
+  return String(v).trim();
+}
+
+function isBlank(v) {
+  return !cleanVal(v);
+}
+
+function toggleContactForm(id, btn) {
+  const form = document.getElementById(`contactForm-${id}`);
+  if (!form) return;
+  const isVisible = form.style.display !== 'none';
+  // Hide all other open forms first
+  document.querySelectorAll('.card-contact-form').forEach(f => f.style.display = 'none');
+  form.style.display = isVisible ? 'none' : 'block';
+}
+
+function cancelContactForm(id) {
+  const form = document.getElementById(`contactForm-${id}`);
+  if (form) form.style.display = 'none';
+}
+
+async function saveContact(id) {
+  const name = document.getElementById(`cf-name-${id}`)?.value?.trim() || '';
+  const phone = document.getElementById(`cf-phone-${id}`)?.value?.trim() || '';
+  const contactNum = document.getElementById(`cf-number-${id}`)?.value?.trim() || '';
+  const notes = document.getElementById(`cf-notes-${id}`)?.value?.trim() || '';
+
+  try {
+    const res = await fetch(`/api/property/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contact_name: name,
+        phone: phone,
+        contact_number: contactNum,
+        notes: notes,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ Contact details saved locally');
+      // Close form and reload to show updated data
+      cancelContactForm(id);
+      loadProperties();
+    } else {
+      showToast('Failed to save: ' + (data.error || 'unknown'), 'error');
+    }
+  } catch(e) {
+    showToast('Failed to save contact details', 'error');
+  }
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
@@ -488,5 +571,5 @@ function showToast(msg, type='') {
 
 function escH(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+  return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,'&#39;');
 }

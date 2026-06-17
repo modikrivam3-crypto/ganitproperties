@@ -56,7 +56,7 @@ def init_db():
         )
     """)
     # Migration: add columns if they don't exist yet
-    for col in ["contact_number", "phone", "contact_name"]:
+    for col in ["contact_number", "phone", "contact_name", "notes"]:
         try:
             db.execute(f"ALTER TABLE properties ADD COLUMN {col} TEXT")
         except sqlite3.OperationalError:
@@ -321,6 +321,34 @@ def delete_property(prop_id):
     db = get_db()
     db.execute("DELETE FROM properties WHERE id = ?", (prop_id,))
     db.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/api/property/<int:prop_id>", methods=["PUT"])
+def update_property(prop_id):
+    """Update contact details for a property (manual editing)."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    db = get_db()
+    fields = []
+    params = []
+    for key in ["contact_number", "phone", "contact_name", "notes"]:
+        if key in data:
+            fields.append(f"{key} = ?")
+            params.append(data[key])
+
+    if not fields:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    params.append(prop_id)
+    db.execute(f"UPDATE properties SET {', '.join(fields)} WHERE id = ?", params)
+    db.commit()
+
+    row = db.execute("SELECT * FROM properties WHERE id = ?", (prop_id,)).fetchone()
+    if row:
+        return jsonify({"success": True, "property": dict(row)})
     return jsonify({"success": True})
 
 
