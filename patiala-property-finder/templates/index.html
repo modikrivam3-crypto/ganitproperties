@@ -26,6 +26,13 @@
       <div class="stats-chips" id="statsChips">
         <span class="chip" id="statTotal">— listings</span>
       </div>
+      <button class="btn btn-import" id="importBtn" onclick="showImportModal()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="import-text">Import</span>
+      </button>
       <button class="btn btn-refresh" id="refreshBtn" onclick="startRefresh()">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -117,9 +124,52 @@
       <div class="source-row" data-source="CommonFloor"><span class="src-name">CommonFloor</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
       <div class="source-row" data-source="NoBroker"><span class="src-name">NoBroker</span><span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
       <div class="source-row" data-source="Google Search">    <span class="src-name">Google Search</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="Google API">    <span class="src-name">Google API</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="Bing API">    <span class="src-name">Bing API</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
+      <div class="source-row" data-source="SerpAPI">    <span class="src-name">SerpAPI</span>    <span class="src-badge badge-pending">Pending</span><span class="src-count"></span></div>
     </div>
     <div class="modal-progress"><div class="modal-progress-bar" id="progressBar"></div></div>
     <div class="modal-result" id="modalResult" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── Import Modal ── -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal modal--import">
+    <div class="modal-header">
+      <h3 class="modal-title">📥 Import Listings</h3>
+      <button class="modal-close" onclick="hideImportModal()">✕</button>
+    </div>
+    <div class="import-tabs">
+      <button class="import-tab active" data-tab="csv-upload" onclick="switchImportTab('csv-upload')">CSV Upload</button>
+      <button class="import-tab" data-tab="csv-paste" onclick="switchImportTab('csv-paste')">Paste CSV</button>
+    </div>
+
+    <!-- CSV Upload -->
+    <div class="import-panel active" id="panel-csv-upload">
+      <p class="import-desc">Upload a CSV file with columns: title, source_url, price, location, area, property_type, listing_type, summary, source_name, contact_number</p>
+      <div class="file-upload-area" id="fileUploadArea">
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(event)"/>
+        <div class="file-upload-placeholder" onclick="document.getElementById('csvFileInput').click()">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Click to select CSV file</span>
+          <span class="file-name" id="selectedFileName"></span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-import-submit" onclick="uploadCSV()" id="csvUploadBtn">Import CSV</button>
+    </div>
+
+    <!-- Paste CSV -->
+    <div class="import-panel" id="panel-csv-paste">
+      <p class="import-desc">Paste CSV text below. Include headers: title,source_url,price,location,area,property_type,listing_type,summary,source_name,contact_number</p>
+      <textarea class="import-textarea" id="csvPasteInput" placeholder="title,source_url,price,location,area,property_type,listing_type,summary,source_name,contact_number&#10;3BHK Flat in Patiala,https://example.com/1,₹45 Lakh,Patiala,1200 sq ft,Flat,Buy,Beautiful flat,My Source,9876543210"></textarea>
+      <button class="btn btn-primary btn-import-submit" onclick="pasteCSV()" id="csvPasteBtn">Import Pasted Data</button>
+    </div>
+
+    <div class="import-result" id="importResult" style="display:none"></div>
   </div>
 </div>
 

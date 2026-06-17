@@ -1,7 +1,10 @@
 import os
 import re
+import io
+import csv
 import sqlite3
 import hashlib
+import json
 from flask import Flask, jsonify, request, render_template, g
 from flask_cors import CORS
 from scrapers import run_all_scrapers, scrape_status
@@ -46,9 +49,15 @@ def init_db():
             summary       TEXT,
             source_url    TEXT NOT NULL,
             source_name   TEXT,
+            contact_number TEXT,
             added_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Add contact_number column if missing (migration for existing DBs)
+    try:
+        db.execute("ALTER TABLE properties ADD COLUMN contact_number TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     db.execute("CREATE INDEX IF NOT EXISTS idx_url_hash ON properties(url_hash)")
     db.execute("CREATE INDEX IF NOT EXISTS idx_tlp_hash ON properties(tlp_hash)")
     db.commit()
@@ -268,8 +277,8 @@ def refresh_listings():
             INSERT OR IGNORE INTO properties
               (url_hash, tlp_hash, title, price, price_numeric,
                location, area, area_sqft, property_type, listing_type,
-               summary, source_url, source_name)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+               summary, source_url, source_name, contact_number)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             url_h, tlp_h,
             item.get("title", ""),
@@ -283,6 +292,7 @@ def refresh_listings():
             item.get("summary", ""),
             item.get("source_url", ""),
             item.get("source_name", ""),
+            item.get("contact_number", ""),
         ))
         added += 1
 
@@ -316,6 +326,149 @@ def clear_demo():
     n = db.execute("DELETE FROM properties WHERE source_name = 'Demo Data'").rowcount
     db.commit()
     return jsonify({"removed": n})
+
+
+# ── CSV Import ──────────────────────────────────────────────────────────────
+
+@app.route("/api/import/csv", methods=["POST"])
+def import_csv():
+    """Import properties from a CSV file upload."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if not file.filename.endswith(".csv"):
+        return jsonify({"error": "File must be a CSV"}), 400
+
+    try:
+        content = file.read().decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(content))
+    except Exception as e:
+        return jsonify({"error": f"Failed to parse CSV: {str(e)}"}), 400
+
+    db = get_db()
+    added = skipped = dupes = 0
+
+    seen_tlp: set[str] = set(
+        r[0] for r in db.execute("SELECT tlp_hash FROM properties WHERE tlp_hash IS NOT NULL").fetchall()
+    )
+
+    for row in reader:
+        title = (row.get("title") or row.get("Title") or "").strip()
+        if not title:
+            continue
+
+        source_url = (row.get("source_url") or row.get("url") or row.get("link") or row.get("Source URL") or "").strip()
+        if not source_url:
+            continue
+
+        price = (row.get("price") or row.get("Price") or "").strip()
+        location = (row.get("location") or row.get("Location") or "Patiala").strip()
+        area = (row.get("area") or row.get("Area") or "").strip()
+        property_type = (row.get("property_type") or row.get("property type") or row.get("Property Type") or "Property").strip()
+        listing_type = (row.get("listing_type") or row.get("listing type") or row.get("Listing Type") or "Buy").strip()
+        summary = (row.get("summary") or row.get("Summary") or "").strip()
+        source_name = (row.get("source_name") or row.get("source name") or row.get("Source Name") or "CSV Import").strip()
+        contact_number = (row.get("contact_number") or row.get("contact number") or row.get("Contact Number") or "").strip()
+
+        url_h = url_hash(source_url)
+        tlp_h = tlp_hash(title, location, price)
+
+        # Skip duplicates
+        if db.execute("SELECT id FROM properties WHERE url_hash = ?", (url_h,)).fetchone():
+            skipped += 1
+            continue
+        if tlp_h in seen_tlp:
+            dupes += 1
+            continue
+        seen_tlp.add(tlp_h)
+
+        price_n = parse_price_lakh(price)
+        area_n = parse_area_sqft(area)
+
+        db.execute("""
+            INSERT OR IGNORE INTO properties
+              (url_hash, tlp_hash, title, price, price_numeric,
+               location, area, area_sqft, property_type, listing_type,
+               summary, source_url, source_name, contact_number)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (url_h, tlp_h, title, price, price_n, location, area, area_n,
+              property_type, listing_type, summary, source_url, source_name, contact_number))
+        added += 1
+
+    db.commit()
+    return jsonify({"added": added, "skipped": skipped, "dupes": dupes})
+
+
+# ── Paste Import ────────────────────────────────────────────────────────────
+
+@app.route("/api/import/paste", methods=["POST"])
+def import_paste():
+    """Import properties from pasted CSV text."""
+    data = request.get_json(silent=True)
+    if not data or "csv_text" not in data:
+        return jsonify({"error": "Provide csv_text in JSON body"}), 400
+
+    csv_text = data["csv_text"].strip()
+    if not csv_text:
+        return jsonify({"error": "CSV text is empty"}), 400
+
+    try:
+        reader = csv.DictReader(io.StringIO(csv_text))
+    except Exception as e:
+        return jsonify({"error": f"Failed to parse CSV: {str(e)}"}), 400
+
+    db = get_db()
+    added = skipped = dupes = 0
+
+    seen_tlp: set[str] = set(
+        r[0] for r in db.execute("SELECT tlp_hash FROM properties WHERE tlp_hash IS NOT NULL").fetchall()
+    )
+
+    for row in reader:
+        title = (row.get("title") or row.get("Title") or "").strip()
+        if not title:
+            continue
+
+        source_url = (row.get("source_url") or row.get("url") or row.get("link") or row.get("Source URL") or "").strip()
+        if not source_url:
+            continue
+
+        price = (row.get("price") or row.get("Price") or "").strip()
+        location = (row.get("location") or row.get("Location") or "Patiala").strip()
+        area = (row.get("area") or row.get("Area") or "").strip()
+        property_type = (row.get("property_type") or row.get("property type") or row.get("Property Type") or "Property").strip()
+        listing_type = (row.get("listing_type") or row.get("listing type") or row.get("Listing Type") or "Buy").strip()
+        summary = (row.get("summary") or row.get("Summary") or "").strip()
+        source_name = (row.get("source_name") or row.get("source name") or row.get("Source Name") or "Paste Import").strip()
+        contact_number = (row.get("contact_number") or row.get("contact number") or row.get("Contact Number") or "").strip()
+
+        url_h = url_hash(source_url)
+        tlp_h = tlp_hash(title, location, price)
+
+        if db.execute("SELECT id FROM properties WHERE url_hash = ?", (url_h,)).fetchone():
+            skipped += 1
+            continue
+        if tlp_h in seen_tlp:
+            dupes += 1
+            continue
+        seen_tlp.add(tlp_h)
+
+        price_n = parse_price_lakh(price)
+        area_n = parse_area_sqft(area)
+
+        db.execute("""
+            INSERT OR IGNORE INTO properties
+              (url_hash, tlp_hash, title, price, price_numeric,
+               location, area, area_sqft, property_type, listing_type,
+               summary, source_url, source_name, contact_number)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (url_h, tlp_h, title, price, price_n, location, area, area_n,
+              property_type, listing_type, summary, source_url, source_name, contact_number))
+        added += 1
+
+    db.commit()
+    return jsonify({"added": added, "skipped": skipped, "dupes": dupes})
 
 
 if __name__ == "__main__":

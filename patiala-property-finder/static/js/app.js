@@ -151,12 +151,40 @@ function createCard(p, i) {
   const meta = [];
   if (p.location) meta.push(`<span class="card-meta-item"><span>📍</span>${escH(p.location)}${p.location !== 'Patiala' ? ', Patiala' : ''}</span>`);
   if (p.area)     meta.push(`<span class="card-meta-item"><span>📐</span>${escH(p.area)}</span>`);
+  if (p.contact_number) meta.push(`<span class="card-meta-item"><span>📞</span>${escH(p.contact_number)}</span>`);
 
   const priceHtml = p.price
     ? `<div class="card-price">${escH(p.price)}</div>`
     : `<div class="card-price no-price">Price not listed</div>`;
 
   const hasUrl = p.source_url && p.source_url.startsWith('http');
+
+  // Contact buttons: if contact_number exists, show Call & WhatsApp
+  let contactButtonsHtml = '';
+  if (p.contact_number) {
+    const cleanNum = p.contact_number.replace(/[\s\-\(\)\+]/g, '');
+    const isIndian = /^(\+?91[-\s]?)?[6-9]\d{9}$/.test(cleanNum) || /^[6-9]\d{9}$/.test(cleanNum);
+    const dialNum = isIndian ? cleanNum.replace(/^0+/, '') : cleanNum;
+    const fullTel = dialNum.startsWith('+') ? dialNum : `+91${dialNum}`;
+    const waNum = isIndian ? `91${dialNum.replace(/^91/, '')}` : dialNum;
+
+    contactButtonsHtml = `<div class="card-contact-buttons">
+      <a href="tel:${fullTel}" class="btn-contact btn-call">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        Call
+      </a>
+      ${isIndian ? `<a href="https://wa.me/${waNum}" target="_blank" rel="noopener noreferrer" class="btn-contact btn-whatsapp">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.545.792 4.904 2.148 6.825L1.46 23.08l4.328-1.36A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.952 0-3.79-.572-5.32-1.548l-.381-.227-2.685.843.84-2.79-.204-.404A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/>
+        </svg>
+        WhatsApp
+      </a>` : ''}
+    </div>`;
+  }
+
   const linkHtml = hasUrl
     ? `<a href="${escH(p.source_url)}" target="_blank" rel="noopener noreferrer" class="btn-listing">
          View listing
@@ -180,6 +208,7 @@ function createCard(p, i) {
     ${priceHtml}
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     ${p.summary ? `<p class="card-summary">${escH(p.summary)}</p>` : ''}
+    ${contactButtonsHtml}
     <div class="card-footer">
       <span class="card-source-info">${dateStr ? dateStr : ''}</span>
       ${linkHtml}
@@ -236,7 +265,7 @@ async function deleteListing(id, btn) {
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
 
-const SOURCE_ORDER = ['MagicBricks','99acres','Housing.com','CommonFloor','NoBroker','Google Search'];
+const SOURCE_ORDER = ['MagicBricks','99acres','Housing.com','CommonFloor','NoBroker','Google Search','Google API','Bing API','SerpAPI'];
 
 async function startRefresh() {
   const modal = document.getElementById('refreshModal');
@@ -316,6 +345,110 @@ function setSourceStatus(name, status, message, countText) {
   if (count) count.textContent = countText || message || '';
 }
 
+// ── Import Modal ──────────────────────────────────────────────────────────────
+
+function showImportModal() {
+  document.getElementById('importModal').classList.add('visible');
+}
+
+function hideImportModal() {
+  document.getElementById('importModal').classList.remove('visible');
+  document.getElementById('importResult').style.display = 'none';
+}
+
+function switchImportTab(tab) {
+  document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.import-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.import-tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  document.getElementById('importResult').style.display = 'none';
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  const nameEl = document.getElementById('selectedFileName');
+  if (file) {
+    nameEl.textContent = file.name;
+    nameEl.style.display = 'inline';
+  } else {
+    nameEl.textContent = '';
+    nameEl.style.display = 'none';
+  }
+}
+
+async function uploadCSV() {
+  const fileInput = document.getElementById('csvFileInput');
+  const file = fileInput.files[0];
+  if (!file) {
+    showToast('Please select a CSV file first', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('csvUploadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/import/csv', { method: 'POST', body: formData });
+    const data = await res.json();
+    const resultDiv = document.getElementById('importResult');
+    resultDiv.style.display = 'block';
+    if (data.error) {
+      resultDiv.innerHTML = `<span class="import-error">❌ ${escH(data.error)}</span>`;
+    } else {
+      resultDiv.innerHTML = `<span class="import-success">✓ ${data.added} added, ${data.dupes} duplicates skipped, ${data.skipped} skipped</span>`;
+      loadStats();
+      loadProperties();
+      fileInput.value = '';
+      document.getElementById('selectedFileName').textContent = '';
+    }
+  } catch(e) {
+    showToast('Import failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import CSV';
+  }
+}
+
+async function pasteCSV() {
+  const textarea = document.getElementById('csvPasteInput');
+  const csvText = textarea.value.trim();
+  if (!csvText) {
+    showToast('Please paste CSV data first', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('csvPasteBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  try {
+    const res = await fetch('/api/import/paste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv_text: csvText }),
+    });
+    const data = await res.json();
+    const resultDiv = document.getElementById('importResult');
+    resultDiv.style.display = 'block';
+    if (data.error) {
+      resultDiv.innerHTML = `<span class="import-error">❌ ${escH(data.error)}</span>`;
+    } else {
+      resultDiv.innerHTML = `<span class="import-success">✓ ${data.added} added, ${data.dupes} duplicates skipped, ${data.skipped} skipped</span>`;
+      loadStats();
+      loadProperties();
+    }
+  } catch(e) {
+    showToast('Import failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import Pasted Data';
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function showLoading(v) {
@@ -333,5 +466,5 @@ function showToast(msg, type='') {
 
 function escH(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
 }

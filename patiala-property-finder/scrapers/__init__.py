@@ -5,6 +5,9 @@ from .housing import HousingScraper
 from .commonfloor import CommonFloorScraper
 from .nobroker import NoBrokerScraper
 from .google_search import GoogleSearchScraper
+from .google_api import GoogleAPIScraper
+from .bing_api import BingAPIScraper
+from .serpapi import SerpAPIScraper
 
 # Global scrape status — read by /api/scrape-status endpoint
 scrape_status: dict = {
@@ -17,12 +20,15 @@ scrape_status: dict = {
 }
 
 SCRAPERS = [
-    ("MagicBricks",  MagicBricksScraper),
-    ("99acres",      Acres99Scraper),
-    ("Housing.com",  HousingScraper),
-    ("CommonFloor",  CommonFloorScraper),
-    ("NoBroker",     NoBrokerScraper),
+    ("MagicBricks",   MagicBricksScraper),
+    ("99acres",       Acres99Scraper),
+    ("Housing.com",   HousingScraper),
+    ("CommonFloor",   CommonFloorScraper),
+    ("NoBroker",      NoBrokerScraper),
     ("Google Search", GoogleSearchScraper),
+    ("Google API",    GoogleAPIScraper),
+    ("Bing API",      BingAPIScraper),
+    ("SerpAPI",       SerpAPIScraper),
 ]
 
 
