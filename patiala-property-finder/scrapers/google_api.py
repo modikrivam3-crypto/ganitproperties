@@ -16,14 +16,12 @@ PROP_TYPE_MAP = [
     ("industrial", "Industrial"), ("factory", "Factory"),
     ("warehouse", "Warehouse"), ("godown", "Warehouse"),
     ("commercial", "Commercial"), ("showroom", "Showroom"),
-    ("office", "Office"),
-    ("shop", "Shop"),
-    ("plot", "Plot"), ("land", "Plot"),
+    ("office", "Office"), ("shop", "Shop"),
+    ("plot", "Plot"), ("land", "Plot"), ("residential plot", "Plot"),
     ("house", "House"), ("independent house", "House"), ("builder floor", "House"),
     ("villa", "Villa"), ("bunglow", "Villa"), ("bungalow", "Villa"),
     ("apartment", "Flat"), ("flat", "Flat"), ("bhk", "Flat"), ("studio", "Flat"),
-    ("penthouse", "Penthouse"),
-    ("hotel", "Hotel"), ("resort", "Hotel"),
+    ("penthouse", "Penthouse"), ("hotel", "Hotel"), ("resort", "Hotel"),
 ]
 
 
@@ -80,13 +78,16 @@ def extract_area(text: str) -> str:
 
 
 def extract_location(text: str) -> str:
-    m = re.search(r"\b(?:in|at|near|@)\s+([A-Za-z\s]+?)(?:,\s*Patiala|,\s*Punjab|\s*[-\u2013]|\s*\||\s*$)", text, re.I)
-    if m:
-        loc = m.group(1).strip()
-        loc = re.sub(r"\s*(?:for\s+(?:sale|rent|buy).*|patiala.*)$", "", loc, flags=re.I)
-        loc = loc.strip().strip(",").strip()
-        if loc and len(loc) > 2 and "sq" not in loc.lower():
-            return loc
+    t = text.lower()
+    if "patiala" in t:
+        m = re.search(r'([A-Za-z][A-Za-z\s.]+)(?:,\s*)?patiala', t, re.I)
+        if m:
+            loc = m.group(1).strip().strip(",").strip()
+            skip = {'for', 'the', 'in', 'at', 'near', 'property', 'sale', 'rent', 'buy', 'price', 'area', 'size', 'new', 'old', 'super', 'carpet'}
+            words = loc.split()
+            if len(words) >= 2 and words[0].lower() not in skip:
+                return loc.title()[:50] + ", Patiala"
+        return "Patiala"
     return "Patiala"
 
 
@@ -119,6 +120,7 @@ class GoogleAPIScraper(BaseScraper):
             "Patiala rental property",
         ]
 
+        total_raw = 0
         for query in queries:
             params = {
                 "key": api_key,
@@ -143,18 +145,11 @@ class GoogleAPIScraper(BaseScraper):
                 print(f"[GoogleAPI] Error for query '{query[:50]}': {e}")
                 continue
 
+            query_results = 0
             for item in items:
                 link = item.get("link", "")
                 if not link or link in seen_urls:
                     continue
-                # Skip non-Patiala results
-                if "patiala" not in link.lower():
-                    # Check title and snippet too
-                    title_txt = item.get("title", "")
-                    snippet_txt = item.get("snippet", "")
-                    combined = (title_txt + " " + snippet_txt).lower()
-                    if "patiala" not in combined:
-                        continue
 
                 seen_urls.add(link)
 
@@ -162,7 +157,6 @@ class GoogleAPIScraper(BaseScraper):
                 snippet = item.get("snippet", "")
                 all_text = title + " " + snippet
 
-                # Determine listing_type from query
                 listing_type = "Buy"
                 if "rent" in query.lower():
                     listing_type = "Rent"
@@ -177,21 +171,31 @@ class GoogleAPIScraper(BaseScraper):
                 phone = extract_phone(all_text)
                 contact_name = extract_contact_name(all_text)
 
+                if not price:
+                    price = "Price on request"
+                if not area:
+                    area = "N/A"
+                if not loc:
+                    loc = "Patiala"
+
                 results.append({
                     "title": str(title)[:200],
                     "price": price,
-                    "location": loc if loc else "Patiala",
+                    "location": loc,
                     "area": area,
                     "property_type": ptype,
                     "listing_type": listing_type,
-                    "summary": snippet[:300] if snippet else f"{listing_type} | {ptype}",
+                    "summary": snippet[:300] if snippet else f"{listing_type} | {ptype} | Patiala",
                     "source_url": link,
                     "source_name": src_name,
                     "phone": phone,
                     "contact_name": contact_name,
                 })
+                query_results += 1
 
-            # Rate limit: max 100 queries per day on free tier
+            total_raw += len(items)
+            print(f"[GoogleAPI] Query '{query[:50]}': {len(items)} raw, {query_results} kept")
             time.sleep(0.3)
 
+        print(f"[GoogleAPI] TOTAL: {len(results)} results (from {total_raw} raw items)")
         return results
