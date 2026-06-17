@@ -3,6 +3,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from .base import BaseScraper
+from .contact_extractor import extract_phone, extract_contact_name
 
 BASE = "https://housing.com"
 
@@ -27,7 +28,7 @@ class HousingScraper(BaseScraper):
     """
     Attempts to scrape Housing.com for Patiala listings.
     Housing.com blocks server-side requests (HTTP 406).
-    Reports status correctly.
+    Reports status correctly. Extracts publicly visible contact info when possible.
     """
 
     def fetch(self) -> list[dict]:
@@ -50,15 +51,21 @@ class HousingScraper(BaseScraper):
                 print(f"[Housing.com] {listing_type}: {e}")
                 continue
 
-            import json, re as _re
+            import json
+            import re as _re
             soup = BeautifulSoup(resp.text, "lxml")
+
+            # Extract phone from page level
+            page_phone = extract_phone(resp.text)
+            page_contact = extract_contact_name(resp.text)
+
             m = _re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, _re.S)
             if m:
                 try:
                     data = json.loads(m.group(1))
                     listings_data = self._find_listings(data)
                     for item in listings_data:
-                        entry = self._parse(item, listing_type)
+                        entry = self._parse(item, listing_type, page_phone, page_contact)
                         if entry:
                             results.append(entry)
                 except Exception as e:
@@ -87,7 +94,7 @@ class HousingScraper(BaseScraper):
                 found.extend(self._find_listings(i, depth+1))
         return found
 
-    def _parse(self, item: dict, listing_type: str) -> dict | None:
+    def _parse(self, item: dict, listing_type: str, page_phone="", page_contact="") -> dict | None:
         title = item.get("name") or item.get("title") or item.get("displayName") or ""
         if not title: return None
         price = str(item.get("price") or item.get("expectedPrice") or "")
@@ -95,6 +102,12 @@ class HousingScraper(BaseScraper):
         loc   = item.get("localityName") or item.get("locality") or "Patiala"
         slug  = item.get("slug") or item.get("id") or ""
         url   = f"{BASE}/in/property/{slug}" if slug else BASE
+
+        # Try to extract phone from item fields
+        item_text = str(item)
+        phone = extract_phone(item_text) or page_phone
+        contact_name = extract_contact_name(item_text) or page_contact
+
         return {
             "title":         title,
             "price":         price,
@@ -105,6 +118,8 @@ class HousingScraper(BaseScraper):
             "summary":       f"{listing_type} | {price} | {loc}".strip(" |"),
             "source_url":    url,
             "source_name":   "Housing.com",
+            "phone":         phone,
+            "contact_name":  contact_name,
         }
 
     def _detect_type(self, text: str) -> str:

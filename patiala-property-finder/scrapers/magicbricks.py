@@ -4,6 +4,7 @@ import math
 import requests
 from bs4 import BeautifulSoup
 from .base import BaseScraper
+from .contact_extractor import extract_phone, extract_contact_name
 
 BASE = "https://www.magicbricks.com"
 MAX_PAGES = 15
@@ -124,12 +125,38 @@ def _build_category_url(path_suffix: str, proptype: str, page: int) -> str:
     return f"{BASE}/{path_suffix}?{params}"
 
 
+def _extract_contact_from_card(card, session) -> tuple[str, str]:
+    """
+    Try to extract phone and contact name from a MagicBricks listing card.
+    Looks for contact buttons/labels in the card HTML.
+    Only extracts publicly visible contact information.
+    """
+    card_html = str(card)
+    phone = extract_phone(card_html)
+    contact_name = extract_contact_name(card_html)
+
+    # Look for specific MagicBricks contact patterns
+    # Contact button with data attribute
+    m = re.search(r'data-contact[=:]\s*["\']?(\+?\d[\d\s\-\(\)]{7,})', card_html, re.I)
+    if m and not phone:
+        digits = re.sub(r'\D', '', m.group(1))
+        if len(digits) >= 10:
+            phone = '+91' + digits[-10:]
+
+    # "Posted by" or "Listed by" labels
+    m = re.search(r'(?:Posted|Listed|Managed)\s+by\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', card.get_text(" "), re.I)
+    if m and not contact_name:
+        contact_name = m.group(1).strip()
+
+    return phone, contact_name
+
+
 class MagicBricksScraper(BaseScraper):
     """
     Scrapes MagicBricks for ALL property types in Patiala:
     residential, commercial, agricultural, buy and rent.
     Paginates each category until no more cards are returned.
-    Only collects title, price, area, location, and original link.
+    Extracts publicly visible contact information when available.
     """
 
     def fetch(self) -> list[dict]:
@@ -189,6 +216,9 @@ class MagicBricksScraper(BaseScraper):
                             continue
                         seen_urls.add(href)
 
+                        # Extract contact info from card
+                        phone, contact_name = _extract_contact_from_card(card, session)
+
                         summary_parts = []
                         if price: summary_parts.append(price)
                         if area:  summary_parts.append(area)
@@ -205,6 +235,8 @@ class MagicBricksScraper(BaseScraper):
                             "summary":       " | ".join(summary_parts),
                             "source_url":    href,
                             "source_name":   "MagicBricks",
+                            "phone":         phone,
+                            "contact_name":  contact_name,
                         })
                         cat_count += 1
                     except Exception as e:

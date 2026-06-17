@@ -8,6 +8,7 @@ import re
 import time
 import requests
 from .base import BaseScraper
+from .contact_extractor import extract_phone, extract_contact_name
 
 PROP_TYPE_MAP = [
     ("agriculture", "Agricultural"), ("agricultural", "Agricultural"), ("farm", "Agricultural"),
@@ -171,6 +172,8 @@ class BingAPIScraper(BaseScraper):
                     loc = extract_location(snippet)
                 ptype = detect_prop_type(all_text)
                 src_name = get_source_name(link)
+                phone = extract_phone(all_text)
+                contact_name = extract_contact_name(all_text)
 
                 results.append({
                     "title": str(title)[:200],
@@ -182,6 +185,8 @@ class BingAPIScraper(BaseScraper):
                     "summary": snippet[:300] if snippet else f"{listing_type} | {ptype}",
                     "source_url": link,
                     "source_name": src_name,
+                    "phone": phone,
+                    "contact_name": contact_name,
                 })
 
             time.sleep(0.5)

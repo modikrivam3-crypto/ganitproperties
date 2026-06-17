@@ -50,14 +50,17 @@ def init_db():
             source_url    TEXT NOT NULL,
             source_name   TEXT,
             contact_number TEXT,
+            phone         TEXT,
+            contact_name  TEXT,
             added_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Add contact_number column if missing (migration for existing DBs)
-    try:
-        db.execute("ALTER TABLE properties ADD COLUMN contact_number TEXT")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # Migration: add columns if they don't exist yet
+    for col in ["contact_number", "phone", "contact_name"]:
+        try:
+            db.execute(f"ALTER TABLE properties ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # already exists
     db.execute("CREATE INDEX IF NOT EXISTS idx_url_hash ON properties(url_hash)")
     db.execute("CREATE INDEX IF NOT EXISTS idx_tlp_hash ON properties(tlp_hash)")
     db.commit()
@@ -277,8 +280,8 @@ def refresh_listings():
             INSERT OR IGNORE INTO properties
               (url_hash, tlp_hash, title, price, price_numeric,
                location, area, area_sqft, property_type, listing_type,
-               summary, source_url, source_name, contact_number)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               summary, source_url, source_name, contact_number, phone, contact_name)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             url_h, tlp_h,
             item.get("title", ""),
@@ -293,6 +296,8 @@ def refresh_listings():
             item.get("source_url", ""),
             item.get("source_name", ""),
             item.get("contact_number", ""),
+            item.get("phone", ""),
+            item.get("contact_name", ""),
         ))
         added += 1
 
@@ -370,6 +375,8 @@ def import_csv():
         summary = (row.get("summary") or row.get("Summary") or "").strip()
         source_name = (row.get("source_name") or row.get("source name") or row.get("Source Name") or "CSV Import").strip()
         contact_number = (row.get("contact_number") or row.get("contact number") or row.get("Contact Number") or "").strip()
+        phone = (row.get("phone") or row.get("Phone") or "").strip()
+        contact_name = (row.get("contact_name") or row.get("contact name") or row.get("Contact Name") or row.get("broker_name") or row.get("owner_name") or "").strip()
 
         url_h = url_hash(source_url)
         tlp_h = tlp_hash(title, location, price)
@@ -390,10 +397,11 @@ def import_csv():
             INSERT OR IGNORE INTO properties
               (url_hash, tlp_hash, title, price, price_numeric,
                location, area, area_sqft, property_type, listing_type,
-               summary, source_url, source_name, contact_number)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               summary, source_url, source_name, contact_number, phone, contact_name)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (url_h, tlp_h, title, price, price_n, location, area, area_n,
-              property_type, listing_type, summary, source_url, source_name, contact_number))
+              property_type, listing_type, summary, source_url, source_name,
+              contact_number, phone, contact_name))
         added += 1
 
     db.commit()
@@ -442,6 +450,8 @@ def import_paste():
         summary = (row.get("summary") or row.get("Summary") or "").strip()
         source_name = (row.get("source_name") or row.get("source name") or row.get("Source Name") or "Paste Import").strip()
         contact_number = (row.get("contact_number") or row.get("contact number") or row.get("Contact Number") or "").strip()
+        phone = (row.get("phone") or row.get("Phone") or "").strip()
+        contact_name = (row.get("contact_name") or row.get("contact name") or row.get("Contact Name") or row.get("broker_name") or row.get("owner_name") or "").strip()
 
         url_h = url_hash(source_url)
         tlp_h = tlp_hash(title, location, price)
@@ -461,10 +471,11 @@ def import_paste():
             INSERT OR IGNORE INTO properties
               (url_hash, tlp_hash, title, price, price_numeric,
                location, area, area_sqft, property_type, listing_type,
-               summary, source_url, source_name, contact_number)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               summary, source_url, source_name, contact_number, phone, contact_name)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (url_h, tlp_h, title, price, price_n, location, area, area_n,
-              property_type, listing_type, summary, source_url, source_name, contact_number))
+              property_type, listing_type, summary, source_url, source_name,
+              contact_number, phone, contact_name))
         added += 1
 
     db.commit()

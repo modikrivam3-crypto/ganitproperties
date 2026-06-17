@@ -3,6 +3,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from .base import BaseScraper
+from .contact_extractor import extract_phone, extract_contact_name
 
 BASE = "https://www.99acres.com"
 
@@ -28,7 +29,7 @@ class Acres99Scraper(BaseScraper):
     """
     Attempts to scrape 99acres for Patiala listings.
     99acres uses Cloudflare protection — may be blocked (403).
-    Reports status correctly in either case.
+    Extracts publicly visible contact information when available.
     """
 
     def fetch(self) -> list[dict]:
@@ -53,6 +54,10 @@ class Acres99Scraper(BaseScraper):
 
             soup = BeautifulSoup(resp.text, "lxml")
 
+            # Extract phone from page HTML
+            phone = extract_phone(resp.text)
+            contact_name = extract_contact_name(resp.text)
+
             # Try JSON-LD ItemList
             import json
             for script in soup.find_all("script", type="application/ld+json"):
@@ -64,6 +69,9 @@ class Acres99Scraper(BaseScraper):
                             name = item.get("name", "")
                             url2 = item.get("url", "")
                             if name and url2:
+                                # Try to get phone from URL if it's a detail page
+                                item_phone = phone  # Use page-level phone
+                                item_contact = contact_name
                                 results.append({
                                     "title":         name,
                                     "price":         "",
@@ -74,6 +82,8 @@ class Acres99Scraper(BaseScraper):
                                     "summary":       f"{listing_type} | {self._detect_type(name)} | Patiala",
                                     "source_url":    url2,
                                     "source_name":   "99acres",
+                                    "phone":         item_phone,
+                                    "contact_name":  item_contact,
                                 })
                 except Exception:
                     continue
@@ -94,6 +104,9 @@ class Acres99Scraper(BaseScraper):
                         title = title_el.get_text(strip=True)[:120] if title_el else txt[:80]
                         price_m = re.search(r"₹[\d,\.]+\s*(?:Lac|Cr|Lakh|lakh|cr)?", txt)
                         area_m  = re.search(r"[\d,]+\s*(?:sqft|sq\.?\s*ft|sq\s*yd|marla|kanal)", txt, re.I)
+                        # Extract phone from card text
+                        card_phone = extract_phone(txt)
+                        card_contact = extract_contact_name(txt)
                         results.append({
                             "title":         title,
                             "price":         price_m.group(0) if price_m else "",
@@ -104,6 +117,8 @@ class Acres99Scraper(BaseScraper):
                             "summary":       f"{listing_type} | Patiala",
                             "source_url":    href,
                             "source_name":   "99acres",
+                            "phone":         card_phone or phone,
+                            "contact_name":  card_contact or contact_name,
                         })
                     break
 

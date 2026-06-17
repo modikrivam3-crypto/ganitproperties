@@ -5,6 +5,7 @@ import requests
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 from .base import BaseScraper
+from .contact_extractor import extract_phone, extract_contact_name
 
 HEADERS = {
     "User-Agent": (
@@ -181,6 +182,8 @@ class GoogleSearchScraper(BaseScraper):
                         loc = parse_location(snippet)
                     ptype = detect_prop_type(all_text)
                     src_name = get_source_name(href)
+                    phone = extract_phone(all_text)
+                    contact_name = extract_contact_name(all_text)
 
                     items.append({
                         "title": str(title)[:120],
@@ -192,6 +195,8 @@ class GoogleSearchScraper(BaseScraper):
                         "summary": (snippet[:200] if snippet else f"{listing_type} | {ptype}"),
                         "source_url": href,
                         "source_name": src_name,
+                        "phone": phone,
+                        "contact_name": contact_name,
                     })
 
                 if items:

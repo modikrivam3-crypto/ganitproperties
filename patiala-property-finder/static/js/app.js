@@ -159,10 +159,19 @@ function createCard(p, i) {
 
   const hasUrl = p.source_url && p.source_url.startsWith('http');
 
-  // Contact buttons: if contact_number exists, show Call & WhatsApp
+  // Determine best phone number to use: phone field > contact_number
+  const phoneNum = p.phone || p.contact_number || '';
+  const contactName = p.contact_name || '';
+
+  // Contact name line
+  const contactNameHtml = contactName
+    ? `<div class="card-contact-name"><span>👤</span> ${escH(contactName)}</div>`
+    : '';
+
+  // Contact buttons: if phone exists, show Call & WhatsApp
   let contactButtonsHtml = '';
-  if (p.contact_number) {
-    const cleanNum = p.contact_number.replace(/[\s\-\(\)\+]/g, '');
+  if (phoneNum) {
+    const cleanNum = phoneNum.replace(/[\s\-\(\)\+]/g, '');
     const isIndian = /^(\+?91[-\s]?)?[6-9]\d{9}$/.test(cleanNum) || /^[6-9]\d{9}$/.test(cleanNum);
     const dialNum = isIndian ? cleanNum.replace(/^0+/, '') : cleanNum;
     const fullTel = dialNum.startsWith('+') ? dialNum : `+91${dialNum}`;
@@ -208,6 +217,7 @@ function createCard(p, i) {
     ${priceHtml}
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     ${p.summary ? `<p class="card-summary">${escH(p.summary)}</p>` : ''}
+    ${contactNameHtml}
     ${contactButtonsHtml}
     <div class="card-footer">
       <span class="card-source-info">${dateStr ? dateStr : ''}</span>
