@@ -110,6 +110,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* ── Contact Buttons on Cards ── */
 .card-contact-name{font-size:.78rem;color:#4a5568;display:flex;align-items:center;gap:4px;padding-top:4px;font-weight:500}
 .card-contact-name span{font-size:.85rem}
+.card-contact-info{font-size:.78rem;color:#4a5568;display:flex;align-items:center;gap:4px;padding-top:4px}
+.card-contact-info span{font-size:.85rem}
+.card-contact-info--na{color:var(--text-muted);font-style:italic}
 .card-contact-buttons{display:flex;gap:6px;flex-wrap:wrap;padding-top:6px}
 .btn-contact{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-sm);font-size:.75rem;font-weight:600;text-decoration:none;transition:background .15s,transform .1s;white-space:nowrap;border:none;cursor:pointer;font-family:inherit}
 .btn-contact:active{transform:scale(.97)}

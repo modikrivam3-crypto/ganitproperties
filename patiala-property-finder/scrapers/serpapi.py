@@ -1,7 +1,8 @@
 """
 SerpAPI scraper for Patiala properties.
 Uses SerpAPI (serpapi.com) to search Google for property listings.
-Requires SERPAPI_API_KEY environment variable.
+Requires SERPAPI_KEY environment variable.
+Uses endpoint: https://serpapi.com/search.json
 """
 import os
 import re
@@ -10,26 +11,22 @@ import requests
 from .base import BaseScraper
 from .contact_extractor import extract_phone, extract_contact_name
 
-PROP_TYPE_MAP = [
-    ("agriculture", "Agricultural"), ("agricultural", "Agricultural"), ("farm", "Agricultural"),
-    ("farmland", "Agricultural"), ("farm land", "Agricultural"), ("khet", "Agricultural"),
-    ("industrial", "Industrial"), ("factory", "Factory"),
-    ("warehouse", "Warehouse"), ("godown", "Warehouse"),
-    ("commercial", "Commercial"), ("showroom", "Showroom"),
-    ("office", "Office"),
-    ("shop", "Shop"),
-    ("plot", "Plot"), ("land", "Plot"),
-    ("house", "House"), ("independent house", "House"), ("builder floor", "House"),
-    ("villa", "Villa"), ("bunglow", "Villa"), ("bungalow", "Villa"),
-    ("apartment", "Flat"), ("flat", "Flat"), ("bhk", "Flat"), ("studio", "Flat"),
-    ("penthouse", "Penthouse"),
-    ("hotel", "Hotel"), ("resort", "Hotel"),
-]
-
 
 def detect_prop_type(text: str) -> str:
     t = text.lower()
-    for kw, label in PROP_TYPE_MAP:
+    for kw, label in [
+        ("agriculture", "Agricultural"), ("agricultural", "Agricultural"), ("farm", "Agricultural"),
+        ("farmland", "Agricultural"), ("farm land", "Agricultural"), ("khet", "Agricultural"),
+        ("industrial", "Industrial"), ("factory", "Factory"),
+        ("warehouse", "Warehouse"), ("godown", "Warehouse"),
+        ("commercial", "Commercial"), ("showroom", "Showroom"),
+        ("office", "Office"), ("shop", "Shop"),
+        ("plot", "Plot"), ("land", "Plot"),
+        ("house", "House"), ("independent house", "House"), ("builder floor", "House"),
+        ("villa", "Villa"), ("bunglow", "Villa"), ("bungalow", "Villa"),
+        ("apartment", "Flat"), ("flat", "Flat"), ("bhk", "Flat"), ("studio", "Flat"),
+        ("penthouse", "Penthouse"), ("hotel", "Hotel"), ("resort", "Hotel"),
+    ]:
         if kw in t:
             return label
     return "Property"
@@ -93,15 +90,15 @@ def extract_location(text: str) -> str:
 class SerpAPIScraper(BaseScraper):
     """
     Uses SerpAPI (serpapi.com) to search Google for property listings in Patiala.
-    Requires environment variable: SERPAPI_API_KEY (or SERPAPI_KEY)
+    Requires environment variable: SERPAPI_KEY
+    Uses endpoint: https://serpapi.com/search.json
     """
 
     def fetch(self) -> list[dict]:
-        # Support both SERPAPI_API_KEY and SERPAPI_KEY for flexibility
-        api_key = os.environ.get("SERPAPI_API_KEY", "") or os.environ.get("SERPAPI_KEY", "")
+        api_key = os.environ.get("SERPAPI_KEY", "") or os.environ.get("SERPAPI_API_KEY", "")
 
         if not api_key:
-            print("[SerpAPI] SKIPPED — SERPAPI_API_KEY not set")
+            print("[SerpAPI] SKIPPED — SERPAPI_KEY not set")
             return []
 
         results = []
@@ -110,13 +107,11 @@ class SerpAPIScraper(BaseScraper):
         queries = [
             "site:99acres.com Patiala property",
             "site:housing.com Patiala property",
-            "site:magicbricks.com Patiala property",
             "site:commonfloor.com Patiala property",
+            "site:magicbricks.com Patiala property",
             "Patiala plot for sale",
             "Patiala land for sale",
             "Patiala commercial property for sale",
-            "Patiala house for sale",
-            "Patiala rental property",
         ]
 
         for query in queries:
@@ -130,14 +125,23 @@ class SerpAPIScraper(BaseScraper):
             }
             try:
                 resp = requests.get(
-                    "https://serpapi.com/search",
+                    "https://serpapi.com/search.json",
                     params=params,
-                    timeout=25,
+                    timeout=30,
                 )
                 if resp.status_code != 200:
                     print(f"[SerpAPI] Query '{query[:50]}' returned {resp.status_code}")
+                    try:
+                        err_data = resp.json()
+                        print(f"[SerpAPI] Error response: {err_data.get('error', 'unknown')}")
+                    except Exception:
+                        pass
                     continue
                 data = resp.json()
+                # Check for API errors
+                if "error" in data:
+                    print(f"[SerpAPI] API error for '{query[:50]}': {data['error']}")
+                    continue
                 items = data.get("organic_results", [])
             except Exception as e:
                 print(f"[SerpAPI] Error for query '{query[:50]}': {e}")
@@ -147,7 +151,7 @@ class SerpAPIScraper(BaseScraper):
                 link = item.get("link", "")
                 if not link or link in seen_urls:
                     continue
-                # Skip non-Patiala results
+                # Keep if Patiala appears in link, title, or snippet
                 if "patiala" not in link.lower():
                     title_txt = item.get("title", "")
                     snippet_txt = item.get("snippet", "")
@@ -161,6 +165,7 @@ class SerpAPIScraper(BaseScraper):
                 snippet = item.get("snippet", "")
                 all_text = title + " " + snippet
 
+                # Determine listing type from query
                 listing_type = "Buy"
                 if "rent" in query.lower():
                     listing_type = "Rent"
@@ -185,10 +190,11 @@ class SerpAPIScraper(BaseScraper):
                     "summary": snippet[:300] if snippet else f"{listing_type} | {ptype}",
                     "source_url": link,
                     "source_name": src_name,
+                    "contact_number": phone,
                     "phone": phone,
                     "contact_name": contact_name,
                 })
 
-            time.sleep(0.5)
+            time.sleep(0.3)
 
         return results

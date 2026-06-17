@@ -151,7 +151,7 @@ function createCard(p, i) {
   const meta = [];
   if (p.location) meta.push(`<span class="card-meta-item"><span>📍</span>${escH(p.location)}${p.location !== 'Patiala' ? ', Patiala' : ''}</span>`);
   if (p.area)     meta.push(`<span class="card-meta-item"><span>📐</span>${escH(p.area)}</span>`);
-  if (p.contact_number) meta.push(`<span class="card-meta-item"><span>📞</span>${escH(p.contact_number)}</span>`);
+  if (p.contact_number && p.contact_number !== 'null' && p.contact_number !== 'None') meta.push(`<span class="card-meta-item"><span>📞</span>${escH(p.contact_number)}</span>`);
 
   const priceHtml = p.price
     ? `<div class="card-price">${escH(p.price)}</div>`
@@ -160,13 +160,24 @@ function createCard(p, i) {
   const hasUrl = p.source_url && p.source_url.startsWith('http');
 
   // Determine best phone number to use: phone field > contact_number
-  const phoneNum = p.phone || p.contact_number || '';
-  const contactName = p.contact_name || '';
+  const phoneNum = (p.phone && p.phone !== 'null' && p.phone !== 'None') ? p.phone : '';
+  const contactName = (p.contact_name && p.contact_name !== 'null' && p.contact_name !== 'None') ? p.contact_name : '';
+  const contactNum = (p.contact_number && p.contact_number !== 'null' && p.contact_number !== 'None') ? p.contact_number : '';
 
   // Contact name line
   const contactNameHtml = contactName
     ? `<div class="card-contact-name"><span>👤</span> ${escH(contactName)}</div>`
     : '';
+
+  // Contact display: show number if available, otherwise "Not publicly available"
+  let contactDisplayHtml = '';
+  if (phoneNum) {
+    contactDisplayHtml = `<div class="card-contact-info"><span>📞</span> Contact: ${escH(phoneNum)}</div>`;
+  } else if (contactNum && !phoneNum) {
+    contactDisplayHtml = `<div class="card-contact-info"><span>📞</span> Contact: ${escH(contactNum)}</div>`;
+  } else {
+    contactDisplayHtml = `<div class="card-contact-info card-contact-info--na"><span>📞</span> Contact: Not publicly available</div>`;
+  }
 
   // Contact buttons: if phone exists, show Call & WhatsApp
   let contactButtonsHtml = '';
@@ -218,6 +229,7 @@ function createCard(p, i) {
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     ${p.summary ? `<p class="card-summary">${escH(p.summary)}</p>` : ''}
     ${contactNameHtml}
+    ${contactDisplayHtml}
     ${contactButtonsHtml}
     <div class="card-footer">
       <span class="card-source-info">${dateStr ? dateStr : ''}</span>
